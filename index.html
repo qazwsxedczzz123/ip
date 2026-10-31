@@ -20,22 +20,27 @@
 <body>
   <h1>目前的公開 IP</h1>
   <div id="ip">查詢中…</div>
+  <div id="ip6" style="font:13px ui-monospace,monospace;color:var(--mute);word-break:break-all;text-align:center"></div>
   <div id="st"></div>
   <button id="pip">開啟懸浮小窗</button>
   <button id="re" class="sec">重新整理</button>
-  <canvas id="cv" width="480" height="160" hidden></canvas>
+  <canvas id="cv" width="640" height="240" hidden></canvas>
   <video id="vd" muted playsinline></video>
   <p>按「開啟懸浮小窗」後切到其他 App，小窗會留在畫面上，每 30 秒自動更新 IP。</p>
 
 <script>
 const ipEl=document.getElementById('ip'),st=document.getElementById('st');
 const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),vd=document.getElementById('vd');
-let ip='—',updated='';
+let ip='—',ip6='',updated='';const ip6El=document.getElementById('ip6');
 
 async function load(){
   try{
-    const r=await fetch('https://api64.ipify.org?format=json',{cache:'no-store'});
-    ip=(await r.json()).ip;
+    const [a,b]=await Promise.allSettled([
+      fetch('https://api.ipify.org?format=json',{cache:'no-store'}).then(r=>r.json()),
+      fetch('https://api6.ipify.org?format=json',{cache:'no-store'}).then(r=>r.json())]);
+    ip=a.status==='fulfilled'?a.value.ip:'無 IPv4';
+    ip6=b.status==='fulfilled'?b.value.ip:'';
+    ip6El.textContent=ip6?'IPv6：'+ip6:'';
     updated=new Date().toLocaleTimeString('zh-TW',{hour12:false});
     ipEl.textContent=ip; st.textContent='更新於 '+updated;
   }catch(e){ st.textContent='查詢失敗，請檢查網路'; }
@@ -43,16 +48,19 @@ async function load(){
 }
 
 function draw(){
-  ctx.fillStyle='#0f1720';ctx.fillRect(0,0,cv.width,cv.height);
-  ctx.fillStyle='#3ecf8e';ctx.fillRect(0,0,8,cv.height);
-  ctx.fillStyle='#8aa0b4';ctx.font='22px sans-serif';
-  ctx.fillText('IP',28,42);
+  const W=cv.width,H=cv.height;
+  ctx.fillStyle='#0f1720';ctx.fillRect(0,0,W,H);
+  ctx.fillStyle='#3ecf8e';ctx.fillRect(0,0,10,H);
+  ctx.textBaseline='alphabetic';
+  // IP：用一般字體並自動縮放到剛好放得下
+  let size=96;
+  do{ ctx.font='600 '+size+'px system-ui,sans-serif'; size-=2; }
+  while(ctx.measureText(ip).width>W-80 && size>20);
   ctx.fillStyle='#e8eef4';
-  let size=ip.length>15?30:52;
-  ctx.font='bold '+size+'px monospace';
-  ctx.fillText(ip,28,100);
-  ctx.fillStyle='#8aa0b4';ctx.font='20px sans-serif';
-  ctx.fillText(updated+'  ·  '+new Date().toLocaleTimeString('zh-TW',{hour12:false}),28,142);
+  ctx.fillText(ip,40,H*0.52);
+  // 時間：只顯示目前時間
+  ctx.fillStyle='#8aa0b4';ctx.font='44px system-ui,sans-serif';
+  ctx.fillText(new Date().toLocaleTimeString('zh-TW',{hour12:false}),40,H*0.85);
 }
 
 // 每秒重畫，讓影片串流持續有畫面
