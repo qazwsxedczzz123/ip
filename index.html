@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>IP 懸浮窗</title>
+<style>
+  :root{--bg:#0f1720;--card:#18232f;--fg:#e8eef4;--mute:#8aa0b4;--acc:#3ecf8e}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:system-ui,sans-serif;
+       display:flex;flex-direction:column;align-items:center;gap:18px;padding:32px 16px}
+  h1{font-size:18px;font-weight:600;color:var(--mute);margin:0}
+  #ip{font:600 34px ui-monospace,monospace;word-break:break-all;text-align:center}
+  #st{font-size:13px;color:var(--mute)}
+  button{font-size:17px;padding:14px 26px;border:0;border-radius:12px;background:var(--acc);color:#06281a;font-weight:700}
+  button.sec{background:var(--card);color:var(--fg)}
+  video{display:none}
+  p{max-width:360px;font-size:13px;color:var(--mute);line-height:1.6}
+</style>
+</head>
+<body>
+  <h1>目前的公開 IP</h1>
+  <div id="ip">查詢中…</div>
+  <div id="st"></div>
+  <button id="pip">開啟懸浮小窗</button>
+  <button id="re" class="sec">重新整理</button>
+  <canvas id="cv" width="480" height="160" hidden></canvas>
+  <video id="vd" muted playsinline></video>
+  <p>按「開啟懸浮小窗」後切到其他 App，小窗會留在畫面上，每 30 秒自動更新 IP。</p>
+
+<script>
+const ipEl=document.getElementById('ip'),st=document.getElementById('st');
+const cv=document.getElementById('cv'),ctx=cv.getContext('2d'),vd=document.getElementById('vd');
+let ip='—',updated='';
+
+async function load(){
+  try{
+    const r=await fetch('https://api64.ipify.org?format=json',{cache:'no-store'});
+    ip=(await r.json()).ip;
+    updated=new Date().toLocaleTimeString('zh-TW',{hour12:false});
+    ipEl.textContent=ip; st.textContent='更新於 '+updated;
+  }catch(e){ st.textContent='查詢失敗，請檢查網路'; }
+  draw();
+}
+
+function draw(){
+  ctx.fillStyle='#0f1720';ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.fillStyle='#3ecf8e';ctx.fillRect(0,0,8,cv.height);
+  ctx.fillStyle='#8aa0b4';ctx.font='22px sans-serif';
+  ctx.fillText('IP',28,42);
+  ctx.fillStyle='#e8eef4';
+  let size=ip.length>15?30:52;
+  ctx.font='bold '+size+'px monospace';
+  ctx.fillText(ip,28,100);
+  ctx.fillStyle='#8aa0b4';ctx.font='20px sans-serif';
+  ctx.fillText(updated+'  ·  '+new Date().toLocaleTimeString('zh-TW',{hour12:false}),28,142);
+}
+
+// 每秒重畫，讓影片串流持續有畫面
+setInterval(draw,1000);
+setInterval(load,30000);
+
+document.getElementById('re').onclick=load;
+document.getElementById('pip').onclick=async()=>{
+  try{
+    if(!vd.srcObject){ vd.srcObject=cv.captureStream(1); }
+    await vd.play();
+    if(document.pictureInPictureElement) await document.exitPictureInPicture();
+    else await vd.requestPictureInPicture();
+  }catch(e){ st.textContent='無法開啟懸浮窗：'+e.message; }
+};
+load();
+</script>
+</body>
+</html>
